@@ -7,21 +7,22 @@
 
 ################################################################################
 test_that("Crew.cluster with default partition as geo and minimal resources", {
-  library(targets)
-  library(crew)
-  library(crew.cluster)
+
 
   # Invalidate the targets
   tar_destroy(ask = FALSE)  
-  
+
+  skip_on_cran()
+  skip_if_not_installed("crew.cluster")
   # Set up a crew.cluster controller for local testing with 1 worker
   controller <- crew_controller_slurm(
     name = "test_geo",
-    workers = 1L,
-    slurm_partition = "geo",
+    workers = 5L,
+    slurm_log_output = "crew_log_%A.out",
+    slurm_log_error = "crew_log_%A.err",
     script_lines = paste0("module load R/", getRversion()),
-    verbose = TRUE  # Enable verbose mode to print job submissions
-
+    slurm_cpus_per_task = 2,
+    slurm_partition = "geo"       
   )
 
   tar_option_set(controller = controller,
@@ -29,31 +30,28 @@ test_that("Crew.cluster with default partition as geo and minimal resources", {
     crew = tar_resources_crew(
       controller = "test_geo"
     )))
+    # packages = c("targets", "crew", "crew.cluster"))
 
 
   # Define a simple pipeline
   tar_script({
+    library(targets)
+    library(crew)
+    library(crew.cluster)
     list(
-      tar_target(x, 1 + 1, 
+      tar_target(a, 1:5, 
           resources = tar_resources(
           crew = tar_resources_crew(controller = "test_geo")
-    ),
-          deployment = "worker"),
-      tar_target(y, x * 2,
+    )),
+      tar_target(b, a^2,
           resources = tar_resources(
-          crew = tar_resources_crew(controller = "test_geo")
-    ), 
-          deployment = "worker")
+          crew = tar_resources_crew(controller = "test_geo")),
+          pattern = map(a))
     )
   }, ask = FALSE)
 
 
-
    
-
-  # Start the controller 
-  controller$start()
-
 
 
   # Run the pipeline with tar_make() using crew.cluster
@@ -61,10 +59,35 @@ test_that("Crew.cluster with default partition as geo and minimal resources", {
 
 
   # Assertions
-  expect_equal(tar_read(y), 4)
+  expect_equal(as.numeric(tar_read(b)), c(1, 4, 9, 16, 25))
 
-  # Clean up
-  controller$terminate()
+
+})
+
+############
+
+test_that("crew SLURM with many tasks and many workers on default partition: normal", {
+  skip_on_cran()
+  skip_if_not_installed("crew.cluster")
+
+  # Invalidate the targets
+  tar_destroy(ask = FALSE)  
+
+  tar_script({
+    library(targets)
+    controller <- crew.cluster::crew_controller_slurm(
+      workers = 25,
+      tasks_max = 100,
+      script_lines = paste0("module load R/", getRversion())
+    )
+    tar_option_set(controller = crew::crew_controller_group(controller))
+    list(
+      tar_target(x, seq_len(1000)),
+      tar_target(y, Sys.sleep(0.1), pattern = map(x))
+    )
+  }, ask = FALSE)
+  tar_make()
+  expect_equal(tar_outdated(reporter = "forecast"), character(0))
 })
 
 
