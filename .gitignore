@@ -104,3 +104,6 @@ slurm_error.log
 **/*.sif
 /Meta/
 /doc/
+
+# R package cache
+tests/testthat/_targets.R
