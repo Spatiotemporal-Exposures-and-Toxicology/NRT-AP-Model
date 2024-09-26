@@ -20,21 +20,47 @@ test_that("Crew.cluster with default partition as geo and minimal resources", {
   skip_on_cran()
   #skip_if_not_installed("crew.cluster")
   # Set up a crew.cluster controller for local testing with 1 worker
-  controller <- crew_controller_slurm(
-    workers = 5L,
-    slurm_log_output = "../slurm/crew_log_%A.out",
-    slurm_log_error = "../slurm/crew_log_%A.err",
-    script_lines = c(
-    paste0("module load R/", getRversion()),
-    "#SBATCH --job-name=crew_job",
-    "#SBATCH --mail-user=kyle.messier@nih.gov",
-    "#SBATCH --mail-type=END,FAIL"
-  ),
-    slurm_partition = "geo",
-    slurm_memory_gigabytes_per_cpu = 4,       
-  )
 
-    tar_option_set(controller = crew::crew_controller_group(controller))
+  controller_local <- crew_controller_local(
+  name = "my_local_controller",
+  workers = 2,
+  seconds_idle = 10)
+
+controller_geo <- crew_controller_slurm(
+  name = "my_slurm_controller",
+  workers = 3,
+  seconds_idle = 15,
+  script_lines = "module load R",
+  slurm_log_output = "../slurm/crew_log_%A.out",
+  slurm_memory_gigabytes_per_cpu = 16       
+)
+tar_option_set(
+  controller = crew_controller_group(controller_local, controller_geo),
+  resources = tar_resources(
+    crew = tar_resources_crew(controller = "my_local_controller")
+  )
+)
+
+
+  # controller <- crew_controller_slurm(
+  #   name = "geo",
+  #   workers = 5L,
+  #   slurm_log_error = "../slurm/crew_log_%A.err",
+  #   script_lines = c(
+  #   paste0("module load R/", getRversion()),
+  #   "#SBATCH --job-name=crew_job",
+  #   "#SBATCH --mail-user=kyle.messier@nih.gov",
+  #   "#SBATCH --mail-type=END,FAIL"
+  # ),
+  #   slurm_partition = "geo",
+  #   slurm_memory_gigabytes_per_cpu = 4,       
+  # )
+
+    # tar_option_set(controller = crew::crew_controller_group(controller),
+    #   resources =  tar_resources(
+    #      crew = tar_resources_crew(
+    #      controller = "geo"
+    # )))
 
     # packages = c("targets", "crew", "crew.cluster"))
 
@@ -49,7 +75,10 @@ test_that("Crew.cluster with default partition as geo and minimal resources", {
           memory = "transient"),
       tar_target(b, a^2,
           memory = "transient",
-          pattern = map(a))
+          pattern = map(a), 
+          resources = tar_resources(
+          crew = tar_resources_crew(controller = "my_slurm_controller")
+    ))
     )
   }, ask = FALSE)
 
