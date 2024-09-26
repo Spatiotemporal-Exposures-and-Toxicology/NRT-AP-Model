@@ -112,3 +112,4 @@ targets_start.Rout
 # KPM specific testing files
 tests/testthat/test-crew.R
 tests/testthat/_targets/
+tests/testthat/_targets.R
