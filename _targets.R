@@ -1,39 +1,43 @@
 library(targets)
 library(tarchetypes)
+library(dplyr)
+library(crew)
 library(future)
 library(future.batchtools)
-library(dplyr)
 library(beethoven)
-library(tidymodels)
-library(bonsai)
+library(amadeus)
 
-Sys.setenv("LD_LIBRARY_PATH" = paste("/ddn/gs1/biotools/R/lib64/R/customlib", Sys.getenv("LD_LIBRARY_PATH"), sep = ":"))
+
 
 # replacing yaml file.
 tar_config_set(
-  store = "/ddn/gs1/group/set/pipeline/beethoven_targets"
+  store = "_targets"
 )
 
-# maximum future exportable object size is set 50GB
-# TODO: the maximum size error did not appear until recently
-#       and suddenly appeared. Need to investigate the cause.
-#       Should be removed after the investigation.
-options(future.globals.maxSize = 50 * 2^30)
+geo_controller <- crew_controller_local(
+  name = "geo_controller",
+  workers = 16L,
+  launch_max = 8L,
+  seconds_idle = 120
+)
 
 
-generate_list_download <- FALSE
+tar_source("inst/targets/targets_initialize.R")
+tar_source("inst/targets/targets_download.R")
+
+generate_list_download <- TRUE
 
 arglist_download <-
   set_args_download(
     char_period = c("2018-01-01", "2022-12-31"),
     char_input_dir = "input",
-    nasa_earth_data_token = NULL,#Sys.getenv("NASA_EARTHDATA_TOKEN"),
+    nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
     mod06_filelist = "inst/targets/mod06_links_2018_2022.csv",
     export = generate_list_download,
     path_export = "inst/targets/download_spec.qs"
   )
 
-generate_list_calc <- FALSE
+generate_list_calc <- TRUE
 
 arglist_common <-
   set_args_calc(
@@ -44,46 +48,21 @@ arglist_common <-
     char_user_email = paste0(Sys.getenv("USER"), "@nih.gov"),
     export = generate_list_calc,
     path_export = "inst/targets/calc_spec.qs",
-    char_input_dir = "/ddn/gs1/group/set/Projects/NRT-AP-Model/input"
+    char_input_dir = "input"
   )
 
-tar_source("inst/targets/targets_initialize.R")
-tar_source("inst/targets/targets_download.R")
-tar_source("inst/targets/targets_calculate.R")
-tar_source("inst/targets/targets_baselearner.R")
-tar_source("inst/targets/targets_metalearner.R")
-tar_source("inst/targets/targets_predict.R")
+
+# tar_source("beethoven/inst/targets/targets_calculate.R")
+# tar_source("beethoven/inst/targets/targets_baselearner.R")
+# tar_source("beethoven/inst/targets/targets_metalearner.R")
+# tar_source("beethoven/inst/targets/targets_predict.R")
 
 
-# bypass option
-Sys.setenv("BTV_DOWNLOAD_PASS" = "TRUE")
+# bypass option for download
+Sys.setenv("BTV_DOWNLOAD_PASS" = "FALSE")
 
-#
-# bind custom built GDAL
-# Users should export the right path to the GDAL library
-# by export LD_LIBRARY_PATH=.... command.
 
-# arglist_common is generated above
-plan(
-  list(
-    tweak(
-      future.batchtools::batchtools_slurm,
-      template = "inst/targets/template_slurm.tmpl",
-      resources =
-        list(
-          memory = 8,
-          log.file = "slurm_run.log",
-          ncpus = 1, partition = "geo", ntasks = 1,
-          email = arglist_common$char_user_email,
-          error.file = "slurm_error.log"
-        )
-    ),
-    multicore
-  )
-)
 
-# # invalidate any nodes older than 180 days: force running the pipeline
-# tar_invalidate(any_of(tar_older(Sys.time() - as.difftime(180, units = "days"))))
 
 
 # # nullify download target if bypass option is set
@@ -97,17 +76,15 @@ if (Sys.getenv("BTV_DOWNLOAD_PASS") == "TRUE") {
 # TODO: check if the controller and resources setting are required
 tar_option_set(
   packages =
-    c("beethoven", "amadeus", "chopin", "targets", "tarchetypes",
+    c( "amadeus", "targets", "tarchetypes",
       "data.table", "sf", "terra", "exactextractr",
-      #"crew", "crew.cluster", 
-      "tigris", "dplyr",
-      "future.batchtools", "qs", "collapse", "bonsai",
-      "tidymodels", "tune", "rsample", "torch", "brulee",
-      "glmnet", "xgboost",
-      "future", "future.apply", "future.callr", "callr",
-      "stars", "rlang", "parallelly"),
-  library = c("/ddn/gs1/home/songi2/r-libs"),
-  repository = "local",
+       "dplyr", "qs", "bonsai",
+      "glmnet", "xgboost", "callr",
+      "stars", "rlang"),
+  controller = crew_controller_group(geo_controller),
+  resources = tar_resources(
+    crew = tar_resources_crew(controller = "geo_controller")
+  ),  
   error = "abridge",
   memory = "transient",
   format = "qs",
@@ -117,13 +94,12 @@ tar_option_set(
   seed = 202401L
 )
 
-# should run tar_make_future()
 
 list(
   target_init,
-  target_download,
-  target_calculate_fit,
-  target_baselearner#,
+  target_download
+  # target_calculate_fit,
+  # target_baselearner#,
   # target_metalearner,
   # target_calculate_predict,
   # target_predict,

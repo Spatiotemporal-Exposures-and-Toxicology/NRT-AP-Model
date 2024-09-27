@@ -101,122 +101,122 @@ set_target_years <-
 #' @importFrom amadeus process_covariates calc_covariates
 #' @importFrom future plan sequential multicore
 #' @export
-calculate <-
-  function(
-    domain = NULL,
-    domain_name = "year",
-    nthreads = 1L,
-    process_function = amadeus::process_covariates,
-    calc_function = amadeus::calc_covariates,
-    ...
-  ) {
-    if (is.null(domain)) {
-      domain <- c(1)
-    }
-    # split the domain, make years from the domain list
-    # assuming that domain length is the same as the number of years
-    domainlist <- split(domain, seq_along(domain))
-    years_data <- seq_along(domain) + 2017
+# calculate <-
+#   function(
+#     domain = NULL,
+#     domain_name = "year",
+#     nthreads = 1L,
+#     process_function = amadeus::process_covariates,
+#     calc_function = amadeus::calc_covariates,
+#     ...
+#   ) {
+#     if (is.null(domain)) {
+#       domain <- c(1)
+#     }
+#     # split the domain, make years from the domain list
+#     # assuming that domain length is the same as the number of years
+#     domainlist <- split(domain, seq_along(domain))
+#     years_data <- seq_along(domain) + 2017
 
-    if (nthreads == 1L) {
-      future::plan(future::sequential)
-    } else {
-      future::plan(future::multicore, workers = nthreads)
-    }
-    # double twists: list_iteration is made to distinguish
-    # cases where a single radius is accepted or ones have no radius
-    # argument.
-    res_calc <-
-      #try(
-      future.apply::future_mapply(
-        function(domain_each, year_each) {
-          # we assume that ... have no "year" and "from" arguments
-          args_process <- c(arg = domain_each, list(...))
-          names(args_process)[1] <- domain_name
-          if (!is.null(args_process$covariate) &&
-              any(names(args_process) %in% c("covariate"))
-          ) {
-            if (args_process$covariate == "nei") {
-              args_process$county <- process_counties()
-            }
-          }
+#     if (nthreads == 1L) {
+#       future::plan(future::sequential)
+#     } else {
+#       future::plan(future::multicore, workers = nthreads)
+#     }
+#     # double twists: list_iteration is made to distinguish
+#     # cases where a single radius is accepted or ones have no radius
+#     # argument.
+#     res_calc <-
+#       #try(
+#       future.apply::future_mapply(
+#         function(domain_each, year_each) {
+#           # we assume that ... have no "year" and "from" arguments
+#           args_process <- c(arg = domain_each, list(...))
+#           names(args_process)[1] <- domain_name
+#           if (!is.null(args_process$covariate) &&
+#               any(names(args_process) %in% c("covariate"))
+#           ) {
+#             if (args_process$covariate == "nei") {
+#               args_process$county <- process_counties()
+#             }
+#           }
 
-          # load balancing strategy
-          # if radius is detected, split the list
-          if (any(names(args_process) %in% c("radius"))) {
-            list_iteration <-
-              split(args_process$radius, seq_along(args_process$radius))
-          } else {
-            list_iteration <- list(1)
-          }
+#           # load balancing strategy
+#           # if radius is detected, split the list
+#           if (any(names(args_process) %in% c("radius"))) {
+#             list_iteration <-
+#               split(args_process$radius, seq_along(args_process$radius))
+#           } else {
+#             list_iteration <- list(1)
+#           }
 
-          list_iteration_calc <-
-            Map(
-              function(r) {
-                args_process$radius <- r
-                from_in <-
-                  rlang::inject(
-                    process_function(!!!args_process)
-                  )
-                res <- rlang::inject(
-                  calc_function(
-                    from = from_in,
-                    !!!args_process
-                  )
-                )
-                # using domain_name, add both
-                # data year and covariate year
-                if (!is.null(domain) && domain_name == "year") {
-                  res <-
-                    add_time_col(
-                      res, domain_each,
-                      sprintf("%s_year", unname(args_process$covariate))
-                    )
-                }
-                res <- data.table::as.data.table(res)
-                return(res)
-              },
-              list_iteration
-            )
-          df_iteration_calc <-
-            if (length(list_iteration_calc) == 1) {
-              list_iteration_calc[[1]]
-            } else {
-              by_detected <-
-                Reduce(intersect, lapply(list_iteration_calc, names))
-              reduce_merge(list_iteration_calc, by = by_detected)
-            }
-          return(df_iteration_calc)
-        },
-        domainlist, years_data, SIMPLIFY = FALSE,
-        future.seed = TRUE
-      )
+#           list_iteration_calc <-
+#             Map(
+#               function(r) {
+#                 args_process$radius <- r
+#                 from_in <-
+#                   rlang::inject(
+#                     process_function(!!!args_process)
+#                   )
+#                 res <- rlang::inject(
+#                   calc_function(
+#                     from = from_in,
+#                     !!!args_process
+#                   )
+#                 )
+#                 # using domain_name, add both
+#                 # data year and covariate year
+#                 if (!is.null(domain) && domain_name == "year") {
+#                   res <-
+#                     add_time_col(
+#                       res, domain_each,
+#                       sprintf("%s_year", unname(args_process$covariate))
+#                     )
+#                 }
+#                 res <- data.table::as.data.table(res)
+#                 return(res)
+#               },
+#               list_iteration
+#             )
+#           df_iteration_calc <-
+#             if (length(list_iteration_calc) == 1) {
+#               list_iteration_calc[[1]]
+#             } else {
+#               by_detected <-
+#                 Reduce(intersect, lapply(list_iteration_calc, names))
+#               reduce_merge(list_iteration_calc, by = by_detected)
+#             }
+#           return(df_iteration_calc)
+#         },
+#         domainlist, years_data, SIMPLIFY = FALSE,
+#         future.seed = TRUE
+#       )
 
-    future::plan(future::sequential)
-    if (inherits(res_calc, "try-error")) {
-      cat(paste0(attr(res_calc, "condition")$message, "\n"))
-      stop("Results do not match expectations.")
-    }
-    res_calc <- lapply(res_calc,
-      function(x) {
-        if ("time" %in% names(x)) {
-          if (nchar(x$time[1]) != 4) {
-            x$time <- data.table::as.IDate(x$time)
-          }
-        }
-        xconvt <- data.table::as.data.table(x)
-        return(xconvt)
-      }
-    )
-    # res_calcdf <- if (length(res_calc) == 1) {
-    #   data.table::as.data.table(res_calc[[1]])
-    # } else if (domain_name %in% c("year", "date")) {
-    #   data.table::rbindlist(res_calc, use.names = TRUE, fill = TRUE)
-    # } else {
-    #   reduce_merge(res_calc, by = c("site_id", "time"))
-    # }
-    return(res_calc)
-  }
+#     future::plan(future::sequential)
+#     if (inherits(res_calc, "try-error")) {
+#       cat(paste0(attr(res_calc, "condition")$message, "\n"))
+#       stop("Results do not match expectations.")
+#     }
+#     res_calc <- lapply(res_calc,
+#       function(x) {
+#         if ("time" %in% names(x)) {
+#           if (nchar(x$time[1]) != 4) {
+#             x$time <- data.table::as.IDate(x$time)
+#           }
+#         }
+#         xconvt <- data.table::as.data.table(x)
+#         return(xconvt)
+#       }
+#     )
+#     # res_calcdf <- if (length(res_calc) == 1) {
+#     #   data.table::as.data.table(res_calc[[1]])
+#     # } else if (domain_name %in% c("year", "date")) {
+#     #   data.table::rbindlist(res_calc, use.names = TRUE, fill = TRUE)
+#     # } else {
+#     #   reduce_merge(res_calc, by = c("site_id", "time"))
+#     # }
+#     return(res_calc)
+#   }
 
 
 
@@ -337,33 +337,33 @@ inject_geos <- function(locs, injection, ...) {
 #' @importFrom future.apply future_lapply
 #' @importFrom rlang inject
 #' @export
-inject_gmted <- function(locs, variable, radii, injection, nthreads = 4L) {
-  future::plan(future::multicore, workers = nthreads)
+# inject_gmted <- function(locs, variable, radii, injection, nthreads = 4L) {
+#   future::plan(future::multicore, workers = nthreads)
 
-  radii_list <- split(radii, seq_along(radii))
-  radii_rep <-
-    future.apply::future_lapply(
-      radii_list,
-      function(r) {
-        rlang::inject(
-          calc_gmted_direct(
-            locs = locs,
-            locs_id = "site_id",
-            radius = r,
-            variable = c(variable, "7.5 arc-seconds"),
-            !!!injection
-          )
-        )
-      },
-      future.seed = TRUE
-    )
-  radii_rep <- lapply(radii_rep, function(x) as.data.frame(x))
-  radii_join <- reduce_merge(radii_rep, "site_id")
-  future::plan(future::sequential)
-  return(radii_join)
-}
+#   radii_list <- split(radii, seq_along(radii))
+#   radii_rep <-
+#     future.apply::future_lapply(
+#       radii_list,
+#       function(r) {
+#         rlang::inject(
+#           calc_gmted_direct(
+#             locs = locs,
+#             locs_id = "site_id",
+#             radius = r,
+#             variable = c(variable, "7.5 arc-seconds"),
+#             !!!injection
+#           )
+#         )
+#       },
+#       future.seed = TRUE
+#     )
+#   radii_rep <- lapply(radii_rep, function(x) as.data.frame(x))
+#   radii_join <- reduce_merge(radii_rep, "site_id")
+#   future::plan(future::sequential)
+#   return(radii_join)
+# }
 
-# nocov end
+# # nocov end
 
 
 #' Reduce and merge a list of data tables
