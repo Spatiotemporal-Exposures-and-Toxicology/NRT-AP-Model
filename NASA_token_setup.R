@@ -1,6 +1,4 @@
 # Setting up the NASA Earth Data Token
-
-setwd("~/")
 file.create(".netrc")
 
 
@@ -12,9 +10,8 @@ sink()
 
 system("chmod 0600 .netrc")
 
-
-setwd("~/")
 file.create(".urs_cookies")
+
 file.create(".dodsrc")
 
 

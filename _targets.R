@@ -8,10 +8,8 @@ library(beethoven)
 library(amadeus)
 
 
-
-# replacing yaml file.
 tar_config_set(
-  store = "_targets"
+  store = "/opt/_targets"
 )
 
 geo_controller <- crew_controller_local(
@@ -22,34 +20,44 @@ geo_controller <- crew_controller_local(
 )
 
 
-tar_source("inst/targets/targets_initialize.R")
-tar_source("inst/targets/targets_download.R")
 
-generate_list_download <- TRUE
 
-arglist_download <-
-  set_args_download(
-    char_period = c("2018-01-01", "2022-12-31"),
-    char_input_dir = "input",
-    nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
-    mod06_filelist = "inst/targets/mod06_links_2018_2022.csv",
-    export = generate_list_download,
-    path_export = "inst/targets/download_spec.qs"
-  )
+ tar_source("/pipeline/targets/my_funs.R")
 
-generate_list_calc <- TRUE
 
-arglist_common <-
-  set_args_calc(
-    char_siteid = "site_id",
-    char_timeid = "time",
-    char_period = c("2018-01-01", "2022-12-31"),
-    num_extent = c(-126, -62, 22, 52),
-    char_user_email = paste0(Sys.getenv("USER"), "@nih.gov"),
-    export = generate_list_calc,
-    path_export = "inst/targets/calc_spec.qs",
-    char_input_dir = "input"
-  )
+# if (!nzchar(Sys.getenv("NASA_EARTHDATA_TOKEN"))){
+#   tar_source("/mnt/NASA_token_setup.R")
+#   NASA_token_setup()
+#   file.exists(".netrc")
+#   file.exists(".urs_cookies")
+#   file.exists(".dodsrc")
+# }
+
+# generate_list_download <- TRUE
+
+# arglist_download <-
+#   set_args_download(
+#     char_period = c("2018-01-01", "2022-12-31"),
+#     char_input_dir = "/input",
+#     nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
+#     mod06_filelist = "/pipeline/targets/mod06_links_2018_2022.csv",
+#     export = generate_list_download,
+#     path_export = "/pipeline/targets/download_spec.qs"
+#   )
+
+# generate_list_calc <- TRUE
+
+# arglist_common <-
+#   set_args_calc(
+#     char_siteid = "site_id",
+#     char_timeid = "time",
+#     char_period = c("2018-01-01", "2022-12-31"),
+#     num_extent = c(-126, -62, 22, 52),
+#     char_user_email = paste0(Sys.getenv("USER"), "@nih.gov"),
+#     export = generate_list_calc,
+#     path_export = "/pipeline/targets/calc_spec.qs",
+#     char_input_dir = "/input"
+#   )
 
 
 # tar_source("beethoven/inst/targets/targets_calculate.R")
@@ -58,29 +66,24 @@ arglist_common <-
 # tar_source("beethoven/inst/targets/targets_predict.R")
 
 
-# bypass option for download
-Sys.setenv("BTV_DOWNLOAD_PASS" = "FALSE")
+# # bypass option for download
+# Sys.setenv("BTV_DOWNLOAD_PASS" = "FALSE")
 
 
 
 
 
-# # nullify download target if bypass option is set
-if (Sys.getenv("BTV_DOWNLOAD_PASS") == "TRUE") {
-  target_download <- NULL
-}
+# # # nullify download target if bypass option is set
+# if (Sys.getenv("BTV_DOWNLOAD_PASS") == "TRUE") {
+#   target_download <- NULL
+# }
 
-# targets options
-# For GPU support, users should be aware of setting environment
-# variables and GPU versions of the packages.
-# TODO: check if the controller and resources setting are required
+
 tar_option_set(
   packages =
     c( "amadeus", "targets", "tarchetypes",
       "data.table", "sf", "terra", "exactextractr",
-       "dplyr", "qs", "bonsai",
-      "glmnet", "xgboost", "callr",
-      "stars", "rlang"),
+       "dplyr", "qs", "callr",  "stars", "rlang"),
   controller = crew_controller_group(geo_controller),
   resources = tar_resources(
     crew = tar_resources_crew(controller = "geo_controller")
@@ -94,10 +97,27 @@ tar_option_set(
   seed = 202401L
 )
 
+  list(
+    tar_target(name = A, command = my_fun_a(100)),
+    tar_target(name = B, command = my_fun_b(A), pattern = A),
+    tar_target(name = save_input, command = saveRDS(B, "/input/input.rds")),
+    tar_target( # Test download data with amadeus
+      download_test,
+      amadeus::download_narr(
+      variables = c("weasd", "omega"),
+      year = c(2023, 2023),
+      directory_to_save = "/input/narr_monolevel",
+      acknowledgement = TRUE,
+      download = TRUE, 
+      remove_command = TRUE
+    ),
+  )
+  )
 
-list(
-  target_init,
-  target_download
+
+# list(
+#   target_init,
+#   target_download
   # target_calculate_fit,
   # target_baselearner#,
   # target_metalearner,
@@ -119,7 +139,7 @@ list(
   #     contrast = "state"
   #   )
   # )
-)
+# )
 
 # targets::tar_visnetwork(targets_only = TRUE)
 # END OF FILE
