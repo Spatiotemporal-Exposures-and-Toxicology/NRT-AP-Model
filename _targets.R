@@ -22,28 +22,25 @@ geo_controller <- crew_controller_local(
 
 
 
- tar_source("/pipeline/targets/my_funs.R")
 
 
-# if (!nzchar(Sys.getenv("NASA_EARTHDATA_TOKEN"))){
-#   tar_source("/mnt/NASA_token_setup.R")
-#   NASA_token_setup()
-#   file.exists(".netrc")
-#   file.exists(".urs_cookies")
-#   file.exists(".dodsrc")
-# }
+if (!nzchar(Sys.getenv("NASA_EARTHDATA_TOKEN"))){
+  tar_source("/mnt/NASA_token_setup.R")
+  file.exists(".netrc")
+  file.exists(".urs_cookies")
+  file.exists(".dodsrc")
+}
 
-# generate_list_download <- TRUE
 
-# arglist_download <-
-#   set_args_download(
-#     char_period = c("2018-01-01", "2022-12-31"),
-#     char_input_dir = "/input",
-#     nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
-#     mod06_filelist = "/pipeline/targets/mod06_links_2018_2022.csv",
-#     export = generate_list_download,
-#     path_export = "/pipeline/targets/download_spec.qs"
-#   )
+arglist_download <-
+  set_args_download(
+    char_period = c("2018-01-01", "2022-12-31"),
+    char_input_dir = "/input",
+    nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
+    mod06_filelist = "/pipeline/targets/mod06_links_2018_2022.csv",
+    export = TRUE,
+    path_export = "/pipeline/targets/download_spec.qs"
+  )
 
 # generate_list_calc <- TRUE
 
@@ -60,15 +57,12 @@ geo_controller <- crew_controller_local(
 #   )
 
 
-# tar_source("beethoven/inst/targets/targets_calculate.R")
-# tar_source("beethoven/inst/targets/targets_baselearner.R")
-# tar_source("beethoven/inst/targets/targets_metalearner.R")
-# tar_source("beethoven/inst/targets/targets_predict.R")
 
 
-# # bypass option for download
-# Sys.setenv("BTV_DOWNLOAD_PASS" = "FALSE")
-
+### NOTE: It is important to source the scipts after the global variables are defined from the set_args functions
+ tar_source("/pipeline/targets/my_funs.R")
+ #tar_source("/pipeline/targets/targets_aqs.R")
+ tar_source("/pipeline/targets/targets_download.R")
 
 
 
@@ -110,8 +104,9 @@ tar_option_set(
       acknowledgement = TRUE,
       download = TRUE, 
       remove_command = TRUE
-    ),
-  )
+    )
+  ),
+   target_download
   )
 
 

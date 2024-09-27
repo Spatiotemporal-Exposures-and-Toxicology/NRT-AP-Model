@@ -1,12 +1,10 @@
-target_AQS <-
+targets_aqs <-
   list(
     targets::tar_target(
-      sf_feat_proc_aqs_sites,
-      command  = amadeus::process_aqs
-        path = list.files(
-          path = file.path(arglist_common$char_input_dir, "aqs", "data_files"),
-          pattern = "daily_88101_[0-9]{4}.csv",
-          full.names = TRUE
+      sf_download_aqs_sites,
+      command  = amadeus::download_aqs(
+        parameter_code = "88101", #PM2.5
+        
         ),
         date = arglist_common$char_period,
         mode = "location",
