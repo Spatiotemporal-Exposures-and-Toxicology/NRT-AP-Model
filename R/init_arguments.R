@@ -97,16 +97,7 @@ set_args_calc <-
     char_user_email = paste0(Sys.getenv("USER"), "@nih.gov"),
     export = FALSE,
     path_export = "inst/targets/calc_spec.qs",
-    char_input_dir = "input",
-    nthreads_nasa = 14L,
-    nthreads_tri = 5L,
-    nthreads_geoscf = 10L,
-    nthreads_gmted = 4L,
-    nthreads_narr = 24L,
-    nthreads_groads = 3L,
-    nthreads_population = 3L,
-    nthreads_append = 8L,
-    nthreads_impute = 64L
+    char_input_dir = "input"
   ) {
     list_common <-
       list(
@@ -115,16 +106,7 @@ set_args_calc <-
         char_period = char_period,
         extent = num_extent,
         char_user_email = char_user_email,
-        char_input_dir = char_input_dir,
-        nthreads_nasa = nthreads_nasa,
-        nthreads_tri = nthreads_tri,
-        nthreads_geoscf = nthreads_geoscf,
-        nthreads_gmted = nthreads_gmted,
-        nthreads_narr = nthreads_narr,
-        nthreads_groads = nthreads_groads,
-        nthreads_population = nthreads_population,
-        nthreads_append = nthreads_append,
-        nthreads_impute = nthreads_impute
+        char_input_dir = char_input_dir
       )
     ain <- function(x, append = FALSE) {
       if (append) {
@@ -304,42 +286,21 @@ set_args_calc <-
   }
 
 
-#' Generate argument list for raw data download
+#' @name parse_download
+#' Generate temporal and directory list for raw data download
 #' @keywords Utility
 #' @param char_period Character(2) vector specifying the time period.
 #'  Default is c("2018-01-01", "2022-10-31").
 #' @param char_input_dir Character string specifying the input path.
 #' Default is "input".
-#' @param nasa_earth_data_token Character string specifying the NASA Earth Data token.
-#' @param mod06_filelist character(1). File path to a CSV file with MOD06 download
-#'   URLs.
-#' @param year_nlcd numeric(2). Numeric vector specifying the NLCD years.
-#' Default is c(2019, 2021).
-#' @param export logical(1). If TRUE, the list is saved to `path_export`.
-#' Default is `TRUE`.
-#' @param path_export Character string specifying the export path.
-#' Default is "inst/targets/download_spec.qs".
 #' @export
-set_args_download <-
+#' @note Refactor 9/28/2024
+parse_download <-
   function(
+    variable = NULL,
     char_period = c("2018-01-01", "2022-10-31"),
-    char_input_dir = "input",
-    nasa_earth_data_token = NULL,
-    mod06_filelist = NULL,
-    year_nlcd = c(2019, 2021),
-    export = FALSE,
-    path_export = "inst/targets/download_spec.qs"
+    char_input_dir = "input"
   ) {
-    # NULL NASA Earth Data token will warn users
-    if (is.null(nasa_earth_data_token)) {
-      warning(
-        paste0(
-          "Argument nasa_earth_data_token is NULL. ",
-          "Please provide a NASA Earth Data token to make the downloading ",
-          "process work properly."
-        )
-      )
-    }
 
     # append input path
     ain <- function(x) {
@@ -350,37 +311,25 @@ set_args_download <-
     time_periods <- as.numeric(substr(char_period, 1, 4))
     time_sequence <- seq(time_periods[1], time_periods[2])
     year_nei <- seq(2017, time_periods[2], 3)
-    gmted_vars <-
-      c("Breakline Emphasis", "Systematic Subsample", "Median Statistic",
-        "Minimum Statistic", "Mean Statistic", "Maximum Statistic",
-        "Standard Deviation Statistic"
-      )
-    narr_variables_mono <-
-      c("air.sfc", "albedo", "apcp", "dswrf", "evap", "hcdc",
-        "hpbl", "lcdc", "lhtfl", "mcdc", "pr_wtr",
-        "prate", "pres.sfc", "shtfl", "snowc", "soilm",    
-        "tcdc", "ulwrf.sfc", "uwnd.10m", "vis", "vwnd.10m", "weasd")
-    narr_variables_plevels <-
-      c("omega", "shum")
+
 
     list_download_config <-
       list(
         aqs = list(dataset_name = "aqs", directory_to_save = ain("aqs"),
                    year = time_periods,
+                   product = "daily",
                    unzip = TRUE, remove_zip = TRUE),
         mod11 = lapply(time_sequence,
           function(t) {
             list(dataset_name = "modis", directory_to_save = ain("modis/raw"),
                   product = "MOD11A1",
-                  date = sprintf(char_date_temp, as.character(t)),
-                  nasa_earth_data_token = nasa_earth_data_token)
+                  date = sprintf(char_date_temp, as.character(t)))
           }),
         mod06 = lapply(time_sequence,
           function(t) {
             list(dataset_name = "modis", directory_to_save = ain("modis/raw"),
                 product = "MOD06_L2",
                 date = sprintf(char_date_temp, as.character(t)),
-                nasa_earth_data_token = nasa_earth_data_token,
                 mod06_links = mod06_filelist)
           }),
         mod09 = lapply(time_sequence,

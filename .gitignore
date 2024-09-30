@@ -113,3 +113,5 @@ tests/testthat/_targets.R
 .netrc
 .urs_cookies
 .dodsrc
+
+beethoven_branching_notes.txt
