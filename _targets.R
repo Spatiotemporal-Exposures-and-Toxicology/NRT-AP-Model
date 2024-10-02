@@ -12,6 +12,7 @@ tar_config_set(
   store = "/opt/_targets"
 )
 
+
 # crew contollers
 # For now, one is set, but we can explore the use of multiple controllers
 # Can also explore making the workers input for bash script or Rscript
@@ -26,23 +27,23 @@ geo_controller <- crew_controller_local(
 
 # Setting up the NASA Earthdata token inside the container
 # This needs to be tested
-if (!nzchar(Sys.getenv("NASA_EARTHDATA_TOKEN"))){
-  tar_source("/mnt/NASA_token_setup.R")
-  file.exists(".netrc")
-  file.exists(".urs_cookies")
-  file.exists(".dodsrc")
-}
+# if (!nzchar(Sys.getenv("NASA_EARTHDATA_TOKEN"))){
+#   tar_source("/mnt/NASA_token_setup.R")
+#   file.exists(".netrc")
+#   file.exists(".urs_cookies")
+#   file.exists(".dodsrc")
+# }
 
 
-arglist_download <-
-  set_args_download(
-    char_period = c("2018-01-01", "2022-12-31"),
-    char_input_dir = "/input",
-    nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
-    mod06_filelist = "/pipeline/targets/mod06_links_2018_2022.csv",
-    export = TRUE,
-    path_export = "/pipeline/targets/download_spec.qs"
-  )
+# arglist_download <-
+#   set_args_download(
+#     char_period = c("2018-01-01", "2022-12-31"),
+#     char_input_dir = "/input",
+#     nasa_earth_data_token = Sys.getenv("NASA_EARTHDATA_TOKEN"),
+#     mod06_filelist = "/pipeline/targets/mod06_links_2018_2022.csv",
+#     export = TRUE,
+#     path_export = "/pipeline/targets/download_spec.qs"
+#   )
 
 
 
@@ -51,7 +52,7 @@ arglist_download <-
 
 ### NOTE: It is important to source the scipts after the global variables are defined from the set_args functions
  #tar_source("/pipeline/targets/targets_aqs.R")
- tar_source("/pipeline/targets/targets_download.R")
+# tar_source("/pipeline/targets/targets_download.R")
 
 # Toy test files - note we will not have functions defined like this directly in
 # the _targets.R file
@@ -85,6 +86,14 @@ tar_option_set(
 )
 
   list(
+    tar_target(
+    sf_data,
+    command = system.file("shape/nc.shp", package="sf")
+  ),
+  tar_target(
+    sf_read, 
+    sf::st_read(sf_data)
+  ),
     tar_target(name = A, command = my_fun_a(100)),
     tar_target(name = B, command = my_fun_b(A), pattern = A),
     tar_target(name = save_input, command = saveRDS(B, "/input/input.rds")),
@@ -99,7 +108,36 @@ tar_option_set(
       remove_command = TRUE
     )
   ),
-   target_download
+tar_target( #aqs download
+  aqs_download, 
+  amadeus::download_aqs(
+      parameter_code = 88101,
+      resolution_temporal = "daily",
+      year = c(2018, 2019),
+      url_aqs_download = "https://aqs.epa.gov/aqsweb/airdata/",
+      directory_to_save = "input/aqs/",
+      acknowledgement = TRUE,
+      download = TRUE,
+      remove_command = FALSE,
+      unzip = TRUE,
+      remove_zip = FALSE
+  ),
+  format = "file"
+),
+  tar_target(
+      sf_feat_proc_aqs_sites,
+      command = function(x){
+        aqs_download
+      amadeus::process_aqs(
+          path ="/input/aqs/data_files",
+          pattern = "daily_88101_[0-9]{4}.csv",
+          date = c("2018-01-01", "2018-01-31"),
+          data_field = "Arithmetic.Mean",
+          mode = "date-location",
+          return_format = "sf")
+      },
+      description = "AQS sites"
+    )
   )
 
 
@@ -160,7 +198,7 @@ tar_option_set(
   #     contrast = "state"
   #   )
   # )
-)
+# )
 
 # targets::tar_visnetwork(targets_only = TRUE)
 # END OF FILE

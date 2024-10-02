@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=dl_calc_tests
 #SBATCH --partition=geo
-#SBATCH --mem=128G
+#SBATCH --mem=24G
 #SBATCH --cpus-per-task=4
-#SBATCH --ntasks=16
+#SBATCH --ntasks=2
 #SBATCH --output=../slurm_messages/slurm-%j.out
 #SBATCH --error=../slurm_messages/slurm-%j.err
 #SBATCH --mail-user=kyle.messier@nih.gov
