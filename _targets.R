@@ -51,18 +51,10 @@ geo_controller <- crew_controller_local(
 
 
 ### NOTE: It is important to source the scipts after the global variables are defined from the set_args functions
- #tar_source("/pipeline/targets/targets_aqs.R")
-# tar_source("/pipeline/targets/targets_download.R")
+tar_source("/pipeline/targets/targets_download.R")
+tar_source("/mnt/R/download.R")
 
-# Toy test files - note we will not have functions defined like this directly in
-# the _targets.R file
-my_fun_a <- function(n) {
-  rnorm(n)
-}
 
-my_fun_b <- function(x) {
-  x^2
-}
 
 
 
@@ -85,120 +77,19 @@ tar_option_set(
   seed = 202401L
 )
 
-  list(
-    tar_target(
-    sf_data,
-    command = system.file("shape/nc.shp", package="sf")
-  ),
-  tar_target(
-    sf_read, 
-    sf::st_read(sf_data)
-  ),
-    tar_target(name = A, command = my_fun_a(100)),
-    tar_target(name = B, command = my_fun_b(A), pattern = A),
-    tar_target(name = save_input, command = saveRDS(B, "/input/input.rds")),
-    tar_target( # Test download data with amadeus
-      download_test,
-      amadeus::download_narr(
-      variables = c("weasd", "omega"),
-      year = c(2023, 2023),
-      directory_to_save = "/input/narr_monolevel",
-      acknowledgement = TRUE,
-      download = TRUE, 
-      remove_command = TRUE
-    )
-  ),
-tar_target( #aqs download
-  aqs_download, 
-  amadeus::download_aqs(
-      parameter_code = 88101,
-      resolution_temporal = "daily",
-      year = c(2018, 2019),
-      url_aqs_download = "https://aqs.epa.gov/aqsweb/airdata/",
-      directory_to_save = "input/aqs/",
-      acknowledgement = TRUE,
-      download = TRUE,
-      remove_command = FALSE,
-      unzip = TRUE,
-      remove_zip = FALSE
-  ),
-  format = "file"
-),
-  tar_target(
-      sf_feat_proc_aqs_sites,
-      command = function(x){
-        aqs_download
-      amadeus::process_aqs(
-          path ="/input/aqs/data_files",
-          pattern = "daily_88101_[0-9]{4}.csv",
-          date = c("2018-01-01", "2018-01-31"),
-          data_field = "Arithmetic.Mean",
-          mode = "date-location",
-          return_format = "sf")
-      },
-      description = "AQS sites"
-    )
-  )
 
 
 # Style below that uses sources scripts for targets by pipeline step
 # Note that variables created in _targets.R are in the same local
 # environment as the sourced scripts
 
-# list(
-#   target_init,
-#   target_download
-  # target_calculate_fit,
-  # target_baselearner#,
-  # target_metalearner,
-  # target_calculate_predict,
-  # target_predict,
-  # # documents and summary statistics
-  # targets::tar_target(
-  #   summary_urban_rural,
-  #   summary_prediction(
-  #     grid_filled,
-  #     level = "point",
-  #     contrast = "urbanrural"))
-  # ,
-  # targets::tar_target(
-  #   summary_state,
-  #   summary_prediction(
-  #     grid_filled,
-  #     level = "point",
-  #     contrast = "state"
-  #   )
-  # )
-# )
 
-# targets::tar_visnetwork(targets_only = TRUE)
-# END OF FILE
+list(
+  tar_target(
+    year, 
+    c(2018, 2019, 2020)
+  ),
+  targets_download
+)
 
-# list(
-#   target_init,
-#   target_download,
-#   target_calculate_fit,
-#   target_baselearner,
-#   target_metalearner,
-#   target_calculate_predict#,
-  # target_predict,
-  # # documents and summary statistics
-  # targets::tar_target(
-  #   summary_urban_rural,
-  #   summary_prediction(
-  #     grid_filled,
-  #     level = "point",
-  #     contrast = "urbanrural"))
-  # ,
-  # targets::tar_target(
-  #   summary_state,
-  #   summary_prediction(
-  #     grid_filled,
-  #     level = "point",
-  #     contrast = "state"
-  #   )
-  # )
-# )
-
-# targets::tar_visnetwork(targets_only = TRUE)
 # END OF FILE
